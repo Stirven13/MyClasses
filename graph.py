@@ -1,3 +1,8 @@
+import math
+
+from PIL import Image, ImageDraw, ImageFont
+
+
 class Graph:
     def __init__(self, graph_dict=None, is_oriented: bool = False):
         self.is_oriented = is_oriented
@@ -23,6 +28,11 @@ class Graph:
             graph_dict = {}
         if not isinstance(graph_dict, dict):
             raise TypeError("graph_dict must be dict")
+        if not self.is_oriented:
+            for vertex in graph_dict:
+                for neighbour in graph_dict[vertex]:
+                    if vertex not in graph_dict[neighbour]:
+                        graph_dict[neighbour].append(vertex)
         self.__graph_dict = graph_dict
 
     def vertices(self):
@@ -62,11 +72,14 @@ class Graph:
         if self.__is_oriented:
             if edge[1] not in self.__graph_dict[edge[0]]:
                 self.__graph_dict[edge[0]].append(edge[1])
+                self.__graph_dict[edge[0]].sort()
         else:
             if edge[1] not in self.__graph_dict[edge[0]]:
                 self.__graph_dict[edge[0]].append(edge[1])
+                self.__graph_dict[edge[0]].sort()
             if edge[0] not in self.__graph_dict[edge[1]]:
                 self.__graph_dict[edge[1]].append(edge[0])
+                self.__graph_dict[edge[1]].sort()
 
     def random_change_oriented(self):
         global random
@@ -91,9 +104,51 @@ class Graph:
                "\n".join(str(vertex) + ": " + ", ".join(str(neighbour) for neighbour in self.__graph_dict[vertex])
                          for vertex in self.__graph_dict)
 
+    def draw(self, filename: str):
+        width, height = 600, 600
+        radius = 20
+        distance = 250
+
+        image = Image.new("RGB", (width, height), "white")
+        draw = ImageDraw.Draw(image)
+
+        vertices = self.vertices()
+        n = len(vertices)
+
+        list_cos_sin = [(math.cos(2 * math.pi * i / n), math.sin(2 * math.pi * i / n)) for i in range(n)]
+        coordinates_vertices = [(int(width / 2 + distance * list_cos_sin[i][0]),
+                                 int(height / 2 + distance * list_cos_sin[i][1]))
+                                for i in range(n)]
+
+        for vertex, neighbours in self.graph_dict.items():
+            x1, y1 = coordinates_vertices[vertex - 1]
+            for neighbour in neighbours:
+                x2, y2 = coordinates_vertices[neighbour - 1]
+                draw.line((x1, y1, x2, y2), fill="black")
+                if self.is_oriented:
+                    angle = math.atan2(y2 - y1, x2 - x1)
+                    arrow_cursor = x2 - (radius + 3) * math.cos(angle), y2 - (radius + 3) * math.sin(angle)
+                    left_part_arrow = (arrow_cursor[0] - 5 * math.cos(angle + math.pi / 6),
+                                       arrow_cursor[1] - 5 * math.sin(angle + math.pi / 6))
+                    right_part_arrow = (arrow_cursor[0] - 5 * math.cos(angle - math.pi / 6),
+                                        arrow_cursor[1] - 5 * math.sin(angle - math.pi / 6))
+
+                    draw.polygon((arrow_cursor, left_part_arrow, right_part_arrow), fill="black")
+
+        font = ImageFont.truetype("arial.ttf", 20)
+
+        for i, vertex in enumerate(vertices):
+            x, y = coordinates_vertices[i]
+            draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill="black")
+            draw.text((x, y), str(vertex), fill="white", anchor="mm", font=font)
+
+        image.save(filename)
+
 
 if __name__ == "__main__":
     graph = Graph()
     graph.random_change_oriented()
-    graph.random_create_graph()
+    graph.random_create_graph(10, .5)
     print(graph)
+    # Erace # to draw graph
+    # graph.draw("graph.png")
